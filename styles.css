@@ -182,7 +182,6 @@ body {
 }
 
 .file-drop {
-  position: relative;
   display: flex;
   min-height: 5.2rem;
   margin: 0;
@@ -197,21 +196,24 @@ body {
 }
 
 .file-drop:hover,
-.file-drop:focus-within {
+.file-input-visually-hidden:focus-visible + .file-drop {
   border-color: var(--drifter-lime);
   background: #17231e;
 }
 
-.file-drop input {
+.file-input-visually-hidden {
   position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  opacity: 0;
-  cursor: pointer;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.file-input-visually-hidden:focus-visible + .file-drop {
+  outline: 2px solid var(--pico-primary-focus);
+  outline-offset: 3px;
 }
 
 .file-drop strong,
@@ -541,6 +543,47 @@ progress::-webkit-progress-value {
 
 .player-actions button {
   margin: 0;
+}
+
+.playback-sync-control {
+  display: flex;
+  min-height: 3.25rem;
+  margin-bottom: 0.35rem;
+  padding: 0.65rem 0.8rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid #314039;
+  border-radius: var(--pico-border-radius);
+  background: rgb(18 29 26 / 55%);
+}
+
+.playback-sync-control label {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: 0.6rem;
+  color: #dbe2dc;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.playback-sync-control input,
+.playback-sync-control button {
+  margin: 0;
+}
+
+.playback-sync-control button {
+  width: auto;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.7rem;
+}
+
+.playback-sync-note {
+  min-height: 1.1rem;
+  margin: 0 0 1rem;
+  color: var(--pico-muted-color);
+  font-size: 0.65rem;
 }
 
 .pause-note {

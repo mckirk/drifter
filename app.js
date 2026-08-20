@@ -63,6 +63,9 @@ const elements = {
   trackProgress: document.querySelector("#track-progress"),
   elapsedTime: document.querySelector("#elapsed-time"),
   durationTime: document.querySelector("#duration-time"),
+  liveSync: document.querySelector("#live-sync"),
+  syncNowButton: document.querySelector("#sync-now"),
+  playbackSyncNote: document.querySelector("#playback-sync-note"),
   pauseButton: document.querySelector("#pause-button"),
   leaveButton: document.querySelector("#leave-button"),
 };
@@ -88,6 +91,7 @@ const state = {
   clockRefreshTicker: null,
   startTimer: null,
   wakeLock: null,
+  liveSyncEnabled: true,
 };
 
 function clientNow() {
@@ -124,6 +128,7 @@ function saveSettings() {
     JSON.stringify({
       startAt: Number.isFinite(state.startAt) ? state.startAt : previous.startAt,
       file,
+      liveSyncEnabled: state.liveSyncEnabled,
     }),
   );
 }
@@ -134,6 +139,9 @@ function restoreSettings() {
   const preset = parsePresetUrl(location.href);
   state.startAt = preset?.startAt ?? (Number.isFinite(saved.startAt) ? saved.startAt : defaultStart);
   state.requiredHash = preset?.sha256 ?? null;
+  state.liveSyncEnabled = saved.liveSyncEnabled !== false;
+  elements.liveSync.checked = state.liveSyncEnabled;
+  updatePlaybackSyncControl();
   elements.startTime.value = toLocalDateTimeValue(state.startAt);
 
   if (preset) {
@@ -587,6 +595,7 @@ function setMode(mode) {
   [elements.stateLabel.textContent, elements.playerTitle.textContent, elements.playerMessage.textContent] = copy;
   elements.pauseButton.disabled = mode === "waiting" || mode === "ended";
   elements.pauseButton.textContent = mode === "paused" ? "Rejoin" : mode === "error" ? "Try again" : "Pause";
+  updatePlaybackSyncControl();
 }
 
 async function joinPlayback() {
@@ -625,6 +634,32 @@ function togglePause() {
     elements.audio.playbackRate = 1;
     setMode("paused");
   }
+}
+
+function updatePlaybackSyncControl(message) {
+  elements.syncNowButton.hidden = state.liveSyncEnabled;
+  elements.syncNowButton.disabled = !["playing", "paused"].includes(state.mode);
+  elements.playbackSyncNote.textContent = message ?? (state.liveSyncEnabled
+    ? "Automatically keeps playback aligned with the shared timeline."
+    : "Playback runs freely. Use Sync now whenever you want to catch up.");
+}
+
+function syncPlaybackNow() {
+  if (!["playing", "paused"].includes(state.mode)) return;
+  const duration = elements.audio.duration;
+  const target = expectedPosition(synchronizedNow(), state.startAt, duration);
+  elements.audio.currentTime = target;
+  elements.audio.playbackRate = 1;
+  updatePlayer();
+  updatePlaybackSyncControl("Synced just now. Live sync remains off.");
+}
+
+function setLiveSync(enabled) {
+  state.liveSyncEnabled = enabled;
+  elements.audio.playbackRate = 1;
+  saveSettings();
+  updatePlaybackSyncControl();
+  if (enabled && state.mode === "playing") correctPlaybackDrift();
 }
 
 function startTickers() {
@@ -689,7 +724,7 @@ function updatePlayer() {
 }
 
 function correctPlaybackDrift() {
-  if (state.mode !== "playing" || elements.audio.paused) return;
+  if (!state.liveSyncEnabled || state.mode !== "playing" || elements.audio.paused) return;
   const expected = expectedPosition(synchronizedNow(), state.startAt, elements.audio.duration);
   const drift = expected - elements.audio.currentTime;
 
@@ -780,6 +815,8 @@ elements.sharePresetButton.addEventListener("click", async () => {
 
 elements.goButton.addEventListener("click", beginSession);
 elements.pauseButton.addEventListener("click", togglePause);
+elements.liveSync.addEventListener("change", () => setLiveSync(elements.liveSync.checked));
+elements.syncNowButton.addEventListener("click", syncPlaybackNow);
 elements.leaveButton.addEventListener("click", showSetup);
 elements.clockButton.addEventListener("click", () => syncClock());
 

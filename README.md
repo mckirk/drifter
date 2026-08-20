@@ -31,15 +31,15 @@ npm run check
 
 ### Local end-to-end test
 
-The Playwright test starts its own static server and opens a desktop context in
-Berlin plus an iPhone-sized mobile context in New York. It creates a preset on
-the desktop, opens it on mobile, verifies the same generated WAV file, and
-checks that both players join the shared timeline.
+The Playwright tests start their own static server and exercise sharing in both
+directions between desktop and mobile-sized contexts in different time zones.
+The mobile file-picker path also runs in Firefox and verifies that tapping the
+visible file card opens the native picker before selecting the generated WAV.
 
-Install the Chromium test browser once, then run the test:
+Install the Chromium and Firefox test browsers once, then run the tests:
 
 ```sh
-npx playwright install chromium
+npx playwright install chromium firefox
 npm run test:e2e
 ```
 
@@ -147,7 +147,11 @@ clock next.
 - Playback position is derived from `server-adjusted now − shared start time`.
 - Small deviations are corrected with a temporary 0.98×/1.02× playback rate;
   deviations of 100 ms or more trigger a seek.
-- The start time and last-used file metadata are stored in `localStorage`.
+- Live sync can be switched off during playback when automatic speed changes or
+  seeks are undesirable. In manual mode, **Sync now** seeks to the current shared
+  position without re-enabling live sync.
+- The start time, live-sync preference, and last-used file metadata are stored in
+  `localStorage`.
 - SHA-256 calculation and QR generation happen entirely in the browser. Preset
   URLs contain no filename, audio content, or clock-service data.
 

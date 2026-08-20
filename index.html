@@ -59,8 +59,13 @@
           </button>
         </aside>
 
+        <input
+          id="audio-file"
+          class="file-input-visually-hidden"
+          type="file"
+          accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac"
+        />
         <label class="file-drop" for="audio-file">
-          <input id="audio-file" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac" />
           <span class="file-icon" aria-hidden="true">♫</span>
           <span>
             <strong id="file-title">Choose an audio file</strong>
@@ -164,6 +169,19 @@
           </div>
           <progress id="track-progress" value="0" max="1"></progress>
         </div>
+
+        <div class="playback-sync-control">
+          <label for="live-sync">
+            <input id="live-sync" type="checkbox" role="switch" checked />
+            Live sync
+          </label>
+          <button id="sync-now" class="secondary outline" type="button" hidden>
+            Sync now
+          </button>
+        </div>
+        <p id="playback-sync-note" class="playback-sync-note" aria-live="polite">
+          Automatically keeps playback aligned with the shared timeline.
+        </p>
 
         <div class="player-actions">
           <button id="pause-button" class="contrast" type="button" disabled>

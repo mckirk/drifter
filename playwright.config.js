@@ -10,9 +10,19 @@ export default defineConfig({
   reporter: "line",
   use: {
     baseURL: "http://127.0.0.1:4173",
-    browserName: "chromium",
     trace: "retain-on-failure",
   },
+  projects: [
+    {
+      name: "chromium",
+      use: { browserName: "chromium" },
+    },
+    {
+      name: "firefox-mobile",
+      grep: /mobile chooses a file/,
+      use: { browserName: "firefox" },
+    },
+  ],
   webServer: {
     command: "node test/e2e/server.mjs",
     url: "http://127.0.0.1:4173",
