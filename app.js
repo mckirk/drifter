@@ -43,13 +43,6 @@ const elements = {
   clearPresetButton: document.querySelector("#clear-preset"),
   startTime: document.querySelector("#start-time"),
   quickStart: document.querySelector("#quick-start"),
-  createPresetButton: document.querySelector("#create-preset"),
-  shareResult: document.querySelector("#share-result"),
-  presetQr: document.querySelector("#preset-qr"),
-  presetUrl: document.querySelector("#preset-url"),
-  copyPresetButton: document.querySelector("#copy-preset"),
-  sharePresetButton: document.querySelector("#share-preset"),
-  shareStatus: document.querySelector("#share-status"),
   sessionPresetQr: document.querySelector("#session-preset-qr"),
   sessionPresetUrl: document.querySelector("#session-preset-url"),
   sessionShare: document.querySelector("#session-share"),
@@ -174,7 +167,6 @@ function updateFormState() {
   );
   const presetUnverified = Boolean(state.requiredHash && !state.fileHash);
   elements.goButton.disabled = !state.file || !validStart || calculatingHash || hashMismatch || presetUnverified;
-  elements.createPresetButton.disabled = !state.fileHash || !validStart || hashMismatch;
 
   if (!state.file) {
     elements.formHint.textContent = state.requiredHash
@@ -406,15 +398,10 @@ function abbreviateHash(hash) {
 
 function invalidateShareResult() {
   state.sharedPresetUrl = null;
-  elements.shareResult.hidden = true;
-  elements.presetUrl.value = "";
-  elements.presetQr.replaceChildren();
   elements.sessionPresetUrl.value = "";
   elements.sessionPresetQr.replaceChildren();
   elements.sessionShare.hidden = true;
-  elements.copyPresetButton.textContent = "Copy link";
   elements.copySessionPresetButton.textContent = "Copy link";
-  elements.shareStatus.textContent = "The QR code is generated here; the audio never leaves this device.";
   elements.sessionShareStatus.textContent = "The QR code contains no audio; the file stays on this device.";
 }
 
@@ -505,7 +492,7 @@ async function copyText(text) {
   if (!copied) throw new Error("Copy was not available");
 }
 
-function createSharePreset({ scroll = true } = {}) {
+function createSharePreset() {
   const startAt = new Date(elements.startTime.value).getTime();
   if (!state.fileHash || !Number.isFinite(startAt)) return;
   const presetUrl = createPresetUrl(location.href, startAt, state.fileHash);
@@ -514,7 +501,6 @@ function createSharePreset({ scroll = true } = {}) {
   qr.make();
 
   state.sharedPresetUrl = presetUrl;
-  elements.presetUrl.value = presetUrl;
   elements.sessionPresetUrl.value = presetUrl;
   const qrSvg = qr.createSvgTag({
     cellSize: 4,
@@ -523,11 +509,8 @@ function createSharePreset({ scroll = true } = {}) {
     title: "Drifter preset QR code",
     alt: "Scan to open this start time and file fingerprint",
   });
-  elements.presetQr.innerHTML = qrSvg;
   elements.sessionPresetQr.innerHTML = qrSvg;
-  elements.shareResult.hidden = false;
   elements.sessionShare.hidden = state.mode === "setup";
-  if (scroll) elements.shareResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 async function unlockAudio() {
@@ -579,7 +562,7 @@ async function beginSession() {
   if (!Number.isFinite(startAt)) return;
 
   state.startAt = startAt;
-  createSharePreset({ scroll: false });
+  createSharePreset();
   saveSettings();
   showPlayer();
   // Invoke these immediately so the click's user activation reaches the media
@@ -799,8 +782,6 @@ elements.copyHashButton.addEventListener("click", async () => {
   }
 });
 
-elements.createPresetButton.addEventListener("click", () => createSharePreset());
-
 async function copyPreset(button, status) {
   if (!state.sharedPresetUrl) return;
   try {
@@ -831,13 +812,9 @@ async function sharePreset(status) {
   }
 }
 
-elements.copyPresetButton.addEventListener("click", () => {
-  copyPreset(elements.copyPresetButton, elements.shareStatus);
-});
 elements.copySessionPresetButton.addEventListener("click", () => {
   copyPreset(elements.copySessionPresetButton, elements.sessionShareStatus);
 });
-elements.sharePresetButton.addEventListener("click", () => sharePreset(elements.shareStatus));
 elements.shareSessionPresetButton.addEventListener("click", () => sharePreset(elements.sessionShareStatus));
 
 elements.goButton.addEventListener("click", beginSession);
@@ -869,7 +846,6 @@ document.addEventListener("visibilitychange", () => {
 
 window.addEventListener("beforeunload", releaseAudioUrl);
 
-elements.sharePresetButton.hidden = typeof navigator.share !== "function";
 elements.shareSessionPresetButton.hidden = typeof navigator.share !== "function";
 restoreSettings();
 updateFormState();

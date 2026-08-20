@@ -113,35 +113,6 @@
           </p>
         </details>
 
-        <hr />
-
-        <div class="section-heading share-heading">
-          <span class="step-number" aria-hidden="true">03</span>
-          <div>
-            <h2>Share a preset</h2>
-            <p>Package the start time and file fingerprint into a link or QR code.</p>
-          </div>
-        </div>
-
-        <button id="create-preset" class="secondary outline share-preset-button" type="button" disabled>
-          Create link &amp; QR code
-        </button>
-
-        <section id="share-result" class="share-result" aria-label="Share this preset" hidden>
-          <div id="preset-qr" class="preset-qr" aria-label="QR code for this preset"></div>
-          <div class="share-copy">
-            <label for="preset-url">Preset link</label>
-            <input id="preset-url" type="url" readonly />
-            <div class="share-actions">
-              <button id="copy-preset" type="button">Copy link</button>
-              <button id="share-preset" class="secondary outline" type="button" hidden>Share…</button>
-            </div>
-            <small id="share-status" aria-live="polite">
-              The QR code is generated here; the audio never leaves this device.
-            </small>
-          </div>
-        </section>
-
         <button id="go-button" class="go-button" type="button" disabled>
           <span>Go</span>
           <span aria-hidden="true">→</span>
@@ -243,6 +214,6 @@
 
     <audio id="audio" preload="metadata" playsinline></audio>
     <script src="runtime-config.js"></script>
-    <script type="module" src="app.js?v=20260820-session-share"></script>
+    <script type="module" src="app.js?v=20260820-session-share-card"></script>
   </body>
 </html>

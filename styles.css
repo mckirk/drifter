@@ -370,14 +370,6 @@ hr {
   line-height: 1.55;
 }
 
-.share-heading {
-  margin-bottom: 0.75rem;
-}
-
-.share-preset-button {
-  margin: 0;
-}
-
 .share-result {
   display: grid;
   grid-template-columns: minmax(9rem, 11rem) 1fr;

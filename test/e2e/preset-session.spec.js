@@ -108,7 +108,7 @@ async function localInputValue(page, timestamp) {
   }, timestamp);
 }
 
-test("a desktop creates a preset and a mobile joins the same session", async ({ browser, browserName }) => {
+test("a desktop shares an active session and a mobile joins", async ({ browser, browserName }) => {
   const track = createSilentWav();
   const expectedHash = createHash("sha256").update(track).digest("hex");
   const desktop = await browser.newContext({
@@ -125,19 +125,20 @@ test("a desktop creates a preset and a mobile joins the same session", async ({ 
     const desktopPage = await desktop.newPage();
     const mobilePage = await mobile.newPage();
 
-    await test.step("the desktop creates a link and QR code", async () => {
+    await test.step("the desktop starts a session and gets its link and QR code", async () => {
       await desktopPage.goto("/");
       await chooseTrack(desktopPage, track, expectedHash);
+      await expect(desktopPage.locator("#create-preset")).toHaveCount(0);
 
       const sharedStart = Math.ceil((Date.now() + 10_000) / 1_000) * 1_000;
       const desktopStartValue = await localInputValue(desktopPage, sharedStart);
       await desktopPage.locator("#start-time").fill(desktopStartValue);
       await desktopPage.locator("#start-time").dispatchEvent("change");
-      await desktopPage.locator("#create-preset").click();
+      await desktopPage.locator("#go-button").click();
 
-      await expect(desktopPage.locator("#preset-qr svg")).toBeVisible();
-      await expect(desktopPage.locator("#session-share")).toBeHidden();
-      const presetUrl = await desktopPage.locator("#preset-url").inputValue();
+      await expect(desktopPage.locator("#session-share")).toBeVisible();
+      await expect(desktopPage.locator("#session-preset-qr svg")).toBeVisible();
+      const presetUrl = await desktopPage.locator("#session-preset-url").inputValue();
       const parsedPreset = new URL(presetUrl);
       expect(parsedPreset.searchParams.get("sha256")).toBe(expectedHash);
       expect(Date.parse(parsedPreset.searchParams.get("start"))).toBe(sharedStart);
@@ -156,10 +157,7 @@ test("a desktop creates a preset and a mobile joins the same session", async ({ 
       });
 
       await test.step("both devices join and play on the shared timeline", async () => {
-        await Promise.all([
-          desktopPage.locator("#go-button").click(),
-          mobilePage.locator("#go-button").click(),
-        ]);
+        await mobilePage.locator("#go-button").click();
         await expect(desktopPage.locator("#session-share")).toBeVisible();
         await expect(mobilePage.locator("#session-share")).toBeVisible();
         expect(await desktopPage.locator("#session-share").evaluate(
@@ -189,7 +187,7 @@ test("a desktop creates a preset and a mobile joins the same session", async ({ 
   }
 });
 
-test("a mobile chooses a file, creates a preset, and a desktop joins", async ({ browser, browserName }) => {
+test("a mobile shares an active session and a desktop joins", async ({ browser, browserName }) => {
   const track = createSilentWav();
   const expectedHash = createHash("sha256").update(track).digest("hex");
   const mobile = await browser.newContext({
@@ -216,13 +214,13 @@ test("a mobile chooses a file, creates a preset, and a desktop joins", async ({ 
     const mobileStartValue = await localInputValue(mobilePage, sharedStart);
     let presetUrl;
 
-    await test.step("the mobile creates a link and QR code", async () => {
+    await test.step("the mobile starts a session and gets its link and QR code", async () => {
       await mobilePage.locator("#start-time").fill(mobileStartValue);
       await mobilePage.locator("#start-time").dispatchEvent("change");
-      await mobilePage.locator("#create-preset").click();
+      await mobilePage.locator("#go-button").click();
 
-      await expect(mobilePage.locator("#preset-qr svg")).toBeVisible();
-      presetUrl = await mobilePage.locator("#preset-url").inputValue();
+      await expect(mobilePage.locator("#session-preset-qr svg")).toBeVisible();
+      presetUrl = await mobilePage.locator("#session-preset-url").inputValue();
       const parsedPreset = new URL(presetUrl);
       expect(parsedPreset.searchParams.get("sha256")).toBe(expectedHash);
       expect(Date.parse(parsedPreset.searchParams.get("start"))).toBe(sharedStart);
@@ -242,10 +240,7 @@ test("a mobile chooses a file, creates a preset, and a desktop joins", async ({ 
     });
 
     await test.step("mobile and desktop join and play on the shared timeline", async () => {
-      await Promise.all([
-        mobilePage.locator("#go-button").click(),
-        desktopPage.locator("#go-button").click(),
-      ]);
+      await desktopPage.locator("#go-button").click();
       await expect(mobilePage.locator("#state-label")).toHaveText("Waiting");
       await expect(desktopPage.locator("#state-label")).toHaveText("Waiting");
       await expect(mobilePage.locator("#state-label")).toHaveText("Playing", { timeout: 15_000 });
