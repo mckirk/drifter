@@ -52,6 +52,7 @@ const elements = {
   shareStatus: document.querySelector("#share-status"),
   sessionPresetQr: document.querySelector("#session-preset-qr"),
   sessionPresetUrl: document.querySelector("#session-preset-url"),
+  sessionShare: document.querySelector("#session-share"),
   copySessionPresetButton: document.querySelector("#copy-session-preset"),
   shareSessionPresetButton: document.querySelector("#share-session-preset"),
   sessionShareStatus: document.querySelector("#session-share-status"),
@@ -410,6 +411,7 @@ function invalidateShareResult() {
   elements.presetQr.replaceChildren();
   elements.sessionPresetUrl.value = "";
   elements.sessionPresetQr.replaceChildren();
+  elements.sessionShare.hidden = true;
   elements.copyPresetButton.textContent = "Copy link";
   elements.copySessionPresetButton.textContent = "Copy link";
   elements.shareStatus.textContent = "The QR code is generated here; the audio never leaves this device.";
@@ -524,6 +526,7 @@ function createSharePreset({ scroll = true } = {}) {
   elements.presetQr.innerHTML = qrSvg;
   elements.sessionPresetQr.innerHTML = qrSvg;
   elements.shareResult.hidden = false;
+  elements.sessionShare.hidden = false;
   if (scroll) elements.shareResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 

@@ -159,6 +159,8 @@ test("a desktop creates a preset and a mobile joins the same session", async ({ 
           desktopPage.locator("#go-button").click(),
           mobilePage.locator("#go-button").click(),
         ]);
+        await expect(desktopPage.locator("#session-share")).toBeVisible();
+        await expect(mobilePage.locator("#session-share")).toBeVisible();
         await expect(desktopPage.locator("#session-preset-qr svg")).toBeVisible();
         await expect(mobilePage.locator("#session-preset-qr svg")).toBeVisible();
         await expect(desktopPage.locator("#session-preset-url")).toHaveValue(presetUrl);
