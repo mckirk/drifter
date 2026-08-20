@@ -182,6 +182,7 @@ body {
 }
 
 .file-drop {
+  position: relative;
   display: flex;
   min-height: 5.2rem;
   margin: 0;
@@ -203,9 +204,14 @@ body {
 
 .file-drop input {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
   opacity: 0;
+  cursor: pointer;
 }
 
 .file-drop strong,

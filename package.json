@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
-    "check": "node --check app.js && node --check drifter-core.js && node --check runtime-config.js && node --check clock-worker/src/index.js && node --check scripts/configure-pages.mjs"
+    "test": "node --test test/*.test.js",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "check": "node --check app.js && node --check drifter-core.js && node --check runtime-config.js && node --check clock-worker/src/index.js && node --check scripts/configure-pages.mjs && node --check playwright.config.js && node --check test/e2e/server.mjs && node --check test/e2e/preset-session.spec.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
   }
 }

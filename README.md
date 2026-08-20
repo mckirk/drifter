@@ -29,6 +29,24 @@ npm test
 npm run check
 ```
 
+### Local end-to-end test
+
+The Playwright test starts its own static server and opens a desktop context in
+Berlin plus an iPhone-sized mobile context in New York. It creates a preset on
+the desktop, opens it on mobile, verifies the same generated WAV file, and
+checks that both players join the shared timeline.
+
+Install the Chromium test browser once, then run the test:
+
+```sh
+npx playwright install chromium
+npm run test:e2e
+```
+
+Use `npm run test:e2e:headed` to watch both device contexts locally. The public
+clock and stylesheet CDN are intercepted so this scenario does not require
+internet access while it runs.
+
 ## Deploy to GitHub Pages
 
 1. Create a GitHub repository and push this project to its default branch
