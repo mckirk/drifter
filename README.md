@@ -42,14 +42,59 @@ GitHub Pages is a static host and its HTTP `Date` header only has one-second
 precision. If relying on a public time service is undesirable, Drifter includes
 a small Cloudflare Worker that only returns millisecond timestamps:
 
-1. Create a Cloudflare Workers API token and find the account ID.
-2. Add them to the GitHub repository as Actions secrets named
-   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+### Cloudflare token permissions
+
+Create a **custom API token** in Cloudflare under **My Profile → API Tokens →
+Create Token → Create Custom Token**. Do not use the Global API Key.
+
+For the included `workers.dev` configuration, give the token only these account
+permissions:
+
+| Scope | Resource | Access | Why |
+| --- | --- | --- | --- |
+| Account | Workers Scripts | Edit | Upload and replace the `drifter-clock` Worker |
+| Account | Account Settings | Read | Let Wrangler identify and validate the target account and its Workers setup |
+
+Under **Account Resources**, choose **Include → Specific account** and select
+only the account that will own this Worker. Do not select all accounts.
+
+No zone permission is required because `clock-worker/wrangler.jsonc` deploys to
+the account's `workers.dev` subdomain and defines no zone route. In particular,
+Drifter does **not** need access to DNS, Workers Routes, KV, R2, D1, Pages,
+Workers Tail, Secrets Store, billing, or other account resources.
+
+The token is account-scoped, not Worker-scoped: `Workers Scripts: Edit` can
+modify Worker scripts in the selected account. For stronger isolation, deploy
+Drifter from a dedicated Cloudflare account. An optional token expiry is useful
+if you also have a process for rotating the corresponding GitHub secret.
+
+If you later change the Worker to use a route or custom domain, add **Zone →
+Workers Routes → Edit** and restrict **Zone Resources** to that single zone.
+That permission is not needed for the supplied `workers.dev` setup.
+
+Cloudflare's **Edit Cloudflare Workers** token template is a compatible fallback
+if a future Wrangler release rejects the minimal token. Restrict it to the same
+single account and review it before creation: the template currently includes
+broader KV, R2, Tail, user, and zone-route permissions that this project does
+not use. See Cloudflare's documentation for
+[GitHub Actions authentication](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)
+and the current
+[API token templates](https://developers.cloudflare.com/fundamentals/api/reference/template/).
+
+### Deployment steps
+
+1. Copy the token when Cloudflare displays it; it is shown only once. Find the
+   target account's **Account ID** in the Cloudflare dashboard.
+2. In GitHub, open **Settings → Secrets and variables → Actions** and add:
+   - Secret `CLOUDFLARE_API_TOKEN`: the token value. Treat this as a password.
+   - Secret `CLOUDFLARE_ACCOUNT_ID`: the ID of the specifically scoped account.
+     The ID is not an authentication credential, but the workflow reads it from
+     GitHub Secrets for consistent configuration.
 3. For production, replace `"*"` in
    `clock-worker/wrangler.jsonc`'s `ALLOWED_ORIGINS` with the site's origin, such
    as `https://example.github.io`. A repository-project path is not part of the
    origin.
-4. Run the **Deploy optional custom clock** workflow. Copy the resulting Workers
+4. Run **Actions → Deploy optional custom clock → Run workflow**. Copy the Workers
    URL and append `/time`, for example
    `https://drifter-clock.example.workers.dev/time`.
 5. Add that complete URL as a GitHub Actions repository variable named

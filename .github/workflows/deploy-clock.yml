@@ -15,6 +15,10 @@ jobs:
       - name: Deploy clock Worker
         uses: cloudflare/wrangler-action@v4
         with:
+          # Least privilege for this workers.dev deployment:
+          # Account / Workers Scripts / Edit
+          # Account / Account Settings / Read
+          # Scope the token to the same single account as this account ID.
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: clock-worker
