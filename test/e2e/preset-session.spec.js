@@ -260,10 +260,11 @@ test("a mobile chooses a file, creates a preset, and a desktop joins", async ({ 
     await test.step("the other labelled mobile control responds to visible text taps", async () => {
       const liveSync = mobilePage.locator("#live-sync");
       const liveSyncLabel = mobilePage.getByText("Live sync", { exact: true });
-      await liveSyncLabel.tap();
       await expect(liveSync).not.toBeChecked();
       await liveSyncLabel.tap();
       await expect(liveSync).toBeChecked();
+      await liveSyncLabel.tap();
+      await expect(liveSync).not.toBeChecked();
     });
   } finally {
     await Promise.allSettled([mobile.close(), desktop.close()]);
@@ -283,7 +284,7 @@ test("playback can use manual sync instead of live correction", async ({ page, c
   await page.locator("#go-button").click();
   await expect(page.locator("#state-label")).toHaveText("Playing");
 
-  await page.locator("#live-sync").uncheck();
+  await expect(page.locator("#live-sync")).not.toBeChecked();
   await expect(page.locator("#sync-now")).toBeVisible();
   await expect(page.locator("#sync-now")).toBeEnabled();
   await expect(page.locator("#playback-sync-note")).toContainText("runs freely");

@@ -147,9 +147,9 @@ clock next.
 - Playback position is derived from `server-adjusted now − shared start time`.
 - Small deviations are corrected with a temporary 0.98×/1.02× playback rate;
   deviations of 100 ms or more trigger a seek.
-- Live sync can be switched off during playback when automatic speed changes or
-  seeks are undesirable. In manual mode, **Sync now** seeks to the current shared
-  position without re-enabling live sync.
+- Live sync is off by default and can be switched on during playback to enable
+  automatic speed changes and seeks. In manual mode, **Sync now** seeks to the
+  current shared position without enabling live sync.
 - The start time, live-sync preference, and last-used file metadata are stored in
   `localStorage`.
 - SHA-256 calculation and QR generation happen entirely in the browser. Preset

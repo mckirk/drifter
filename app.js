@@ -97,7 +97,7 @@ const state = {
   clockRefreshTicker: null,
   startTimer: null,
   wakeLock: null,
-  liveSyncEnabled: true,
+  liveSyncEnabled: false,
 };
 
 function clientNow() {
@@ -145,7 +145,7 @@ function restoreSettings() {
   const preset = parsePresetUrl(location.href);
   state.startAt = preset?.startAt ?? (Number.isFinite(saved.startAt) ? saved.startAt : defaultStart);
   state.requiredHash = preset?.sha256 ?? null;
-  state.liveSyncEnabled = saved.liveSyncEnabled !== false;
+  state.liveSyncEnabled = saved.liveSyncEnabled === true;
   elements.liveSync.checked = state.liveSyncEnabled;
   updatePlaybackSyncControl();
   elements.startTime.value = toLocalDateTimeValue(state.startAt);
