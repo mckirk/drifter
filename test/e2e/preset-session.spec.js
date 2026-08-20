@@ -136,6 +136,7 @@ test("a desktop creates a preset and a mobile joins the same session", async ({ 
       await desktopPage.locator("#create-preset").click();
 
       await expect(desktopPage.locator("#preset-qr svg")).toBeVisible();
+      await expect(desktopPage.locator("#session-share")).toBeHidden();
       const presetUrl = await desktopPage.locator("#preset-url").inputValue();
       const parsedPreset = new URL(presetUrl);
       expect(parsedPreset.searchParams.get("sha256")).toBe(expectedHash);
@@ -161,6 +162,9 @@ test("a desktop creates a preset and a mobile joins the same session", async ({ 
         ]);
         await expect(desktopPage.locator("#session-share")).toBeVisible();
         await expect(mobilePage.locator("#session-share")).toBeVisible();
+        expect(await desktopPage.locator("#session-share").evaluate(
+          (card) => card.previousElementSibling?.id,
+        )).toBe("player-panel");
         await expect(desktopPage.locator("#session-preset-qr svg")).toBeVisible();
         await expect(mobilePage.locator("#session-preset-qr svg")).toBeVisible();
         await expect(desktopPage.locator("#session-preset-url")).toHaveValue(presetUrl);

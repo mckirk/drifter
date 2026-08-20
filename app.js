@@ -526,7 +526,7 @@ function createSharePreset({ scroll = true } = {}) {
   elements.presetQr.innerHTML = qrSvg;
   elements.sessionPresetQr.innerHTML = qrSvg;
   elements.shareResult.hidden = false;
-  elements.sessionShare.hidden = false;
+  elements.sessionShare.hidden = state.mode === "setup";
   if (scroll) elements.shareResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
@@ -557,6 +557,7 @@ async function requestWakeLock() {
 function showPlayer() {
   elements.setupPanel.hidden = true;
   elements.playerPanel.hidden = false;
+  elements.sessionShare.hidden = !state.sharedPresetUrl;
   elements.playerPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -566,6 +567,7 @@ function showSetup() {
   elements.audio.playbackRate = 1;
   state.mode = "setup";
   elements.playerPanel.hidden = true;
+  elements.sessionShare.hidden = true;
   elements.setupPanel.hidden = false;
   updateFormState();
   elements.setupPanel.scrollIntoView({ behavior: "smooth", block: "start" });
