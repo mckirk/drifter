@@ -7,6 +7,12 @@ group's current position.
 
 The audio file is read directly from the device and is never uploaded.
 
+Each selected file is also fingerprinted locally with SHA-256. A shareable
+preset link or QR code contains only that fingerprint and an ISO-formatted UTC
+start time. Opening a preset fills in the correct local time and verifies the
+chosen file before playback, which helps catch similarly named or differently
+encoded tracks.
+
 ## Run locally
 
 The app uses ES modules, so serve it over HTTP rather than opening `index.html`
@@ -124,6 +130,8 @@ clock next.
 - Small deviations are corrected with a temporary 0.98×/1.02× playback rate;
   deviations of 100 ms or more trigger a seek.
 - The start time and last-used file metadata are stored in `localStorage`.
+- SHA-256 calculation and QR generation happen entirely in the browser. Preset
+  URLs contain no filename, audio content, or clock-service data.
 
 Browsers do not allow a site to silently reopen a local file after a reload. To
 rejoin after closing the page, select the same file again; Drifter restores the

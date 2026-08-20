@@ -49,6 +49,16 @@
           </div>
         </div>
 
+        <aside id="preset-notice" class="preset-notice" aria-live="polite" hidden>
+          <div>
+            <strong>Preset loaded</strong>
+            <p id="preset-detail"></p>
+          </div>
+          <button id="clear-preset" class="secondary outline compact-button" type="button">
+            Ignore preset
+          </button>
+        </aside>
+
         <label class="file-drop" for="audio-file">
           <input id="audio-file" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac" />
           <span class="file-icon" aria-hidden="true">♫</span>
@@ -57,6 +67,15 @@
             <small id="file-detail">MP3, M4A, WAV, OGG, or FLAC · never uploaded</small>
           </span>
         </label>
+        <div id="file-fingerprint" class="file-fingerprint" aria-live="polite" hidden>
+          <div class="fingerprint-copy">
+            <span id="hash-status" class="status-badge">Calculating SHA-256…</span>
+            <code id="file-hash"></code>
+          </div>
+          <button id="copy-hash" class="secondary outline compact-button" type="button" hidden>
+            Copy hash
+          </button>
+        </div>
         <p id="remembered-file" class="remembered-file" hidden></p>
 
         <hr />
@@ -65,7 +84,7 @@
           <span class="step-number" aria-hidden="true">02</span>
           <div>
             <h2>Set the shared start</h2>
-            <p>Use the same date and local time on each device.</p>
+            <p>Pick one moment. Shared links adapt it to each device’s time zone.</p>
           </div>
         </div>
 
@@ -88,6 +107,35 @@
             Small playback drift is corrected automatically.
           </p>
         </details>
+
+        <hr />
+
+        <div class="section-heading share-heading">
+          <span class="step-number" aria-hidden="true">03</span>
+          <div>
+            <h2>Share a preset</h2>
+            <p>Package the start time and file fingerprint into a link or QR code.</p>
+          </div>
+        </div>
+
+        <button id="create-preset" class="secondary outline share-preset-button" type="button" disabled>
+          Create link &amp; QR code
+        </button>
+
+        <section id="share-result" class="share-result" aria-label="Share this preset" hidden>
+          <div id="preset-qr" class="preset-qr" aria-label="QR code for this preset"></div>
+          <div class="share-copy">
+            <label for="preset-url">Preset link</label>
+            <input id="preset-url" type="url" readonly />
+            <div class="share-actions">
+              <button id="copy-preset" type="button">Copy link</button>
+              <button id="share-preset" class="secondary outline" type="button" hidden>Share…</button>
+            </div>
+            <small id="share-status" aria-live="polite">
+              The QR code is generated here; the audio never leaves this device.
+            </small>
+          </div>
+        </section>
 
         <button id="go-button" class="go-button" type="button" disabled>
           <span>Go</span>

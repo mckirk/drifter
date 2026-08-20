@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 
 import {
   clockOffsetFromSample,
+  createPresetUrl,
   expectedPosition,
   formatDuration,
   median,
   ntpSample,
+  parsePresetUrl,
   selectBestClockSample,
+  sha256Hex,
   timestampsFromTimeApiPayload,
   timestampsFromWorkerPayload,
   toLocalDateTimeValue,
@@ -98,4 +101,26 @@ test("formats short and long durations", () => {
 test("formats a timestamp for a datetime-local control", () => {
   const timestamp = new Date(2026, 7, 20, 18, 5, 9).getTime();
   assert.equal(toLocalDateTimeValue(timestamp), "2026-08-20T18:05:09");
+});
+
+test("calculates a lowercase SHA-256 fingerprint", async () => {
+  const hash = await sha256Hex(new TextEncoder().encode("Drifter"));
+  assert.equal(hash, "c89cf5e4dfd1e990e4e8c2e8c4e4762993e5c63eeefae0affb0cbe9702fb03ce");
+});
+
+test("creates and parses portable preset URLs", () => {
+  const startAt = Date.UTC(2026, 7, 20, 17, 42, 12);
+  const sha256 = "a".repeat(64);
+  const url = createPresetUrl("https://example.com/drifter/?theme=dark#setup", startAt, sha256);
+  assert.equal(
+    url,
+    `https://example.com/drifter/?start=2026-08-20T17%3A42%3A12.000Z&sha256=${sha256}`,
+  );
+  assert.deepEqual(parsePresetUrl(url), { startAt, sha256 });
+});
+
+test("rejects partial and malformed presets", () => {
+  assert.equal(parsePresetUrl("https://example.com/?start=2026-08-20T17:42:12Z"), null);
+  assert.equal(parsePresetUrl("https://example.com/?start=nope&sha256=" + "a".repeat(64)), null);
+  assert.throws(() => createPresetUrl("https://example.com/", Date.now(), "short"));
 });

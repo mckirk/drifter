@@ -126,3 +126,44 @@ export function toLocalDateTimeValue(timestamp) {
   const local = new Date(timestamp - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 19);
 }
+
+const SHA256_PATTERN = /^[a-f\d]{64}$/i;
+
+/** Return the lowercase SHA-256 fingerprint for an ArrayBuffer or typed array. */
+export async function sha256Hex(data) {
+  const bytes = ArrayBuffer.isView(data)
+    ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+    : data;
+  if (!(bytes instanceof ArrayBuffer)) throw new TypeError("Expected binary data");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/** Parse a complete Drifter preset from a URL. Invalid or partial presets are ignored. */
+export function parsePresetUrl(value) {
+  try {
+    const url = new URL(value, "https://drifter.invalid/");
+    const start = url.searchParams.get("start");
+    const sha256 = url.searchParams.get("sha256")?.toLowerCase();
+    const startAt = Date.parse(start ?? "");
+    if (!Number.isFinite(startAt) || !SHA256_PATTERN.test(sha256 ?? "")) return null;
+    return { startAt, sha256 };
+  } catch {
+    return null;
+  }
+}
+
+/** Build a portable preset URL with an unambiguous UTC start and file fingerprint. */
+export function createPresetUrl(baseUrl, startAt, sha256) {
+  if (!Number.isFinite(startAt) || !SHA256_PATTERN.test(sha256 ?? "")) {
+    throw new TypeError("A valid start time and SHA-256 fingerprint are required");
+  }
+  const url = new URL(baseUrl);
+  // Presets are intentionally minimal: do not forward tracking or unrelated
+  // parameters from the page that created them.
+  url.search = "";
+  url.searchParams.set("start", new Date(startAt).toISOString());
+  url.searchParams.set("sha256", sha256.toLowerCase());
+  url.hash = "";
+  return url.toString();
+}

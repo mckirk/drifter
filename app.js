@@ -1,14 +1,18 @@
 import {
   clockOffsetFromSample,
+  createPresetUrl,
   expectedPosition,
   formatDuration,
   median,
   ntpSample,
+  parsePresetUrl,
   selectBestClockSample,
+  sha256Hex,
   timestampsFromTimeApiPayload,
   timestampsFromWorkerPayload,
   toLocalDateTimeValue,
 } from "./drifter-core.js";
+import qrcode from "./vendor/qrcode.mjs";
 
 const STORAGE_KEY = "drifter.settings.v1";
 const PUBLIC_CLOCK_ENDPOINT = "https://timeapi.io/api/Time/current/zone?timeZone=UTC";
@@ -29,9 +33,23 @@ const elements = {
   fileInput: document.querySelector("#audio-file"),
   fileTitle: document.querySelector("#file-title"),
   fileDetail: document.querySelector("#file-detail"),
+  fileFingerprint: document.querySelector("#file-fingerprint"),
+  fileHash: document.querySelector("#file-hash"),
+  hashStatus: document.querySelector("#hash-status"),
+  copyHashButton: document.querySelector("#copy-hash"),
   rememberedFile: document.querySelector("#remembered-file"),
+  presetNotice: document.querySelector("#preset-notice"),
+  presetDetail: document.querySelector("#preset-detail"),
+  clearPresetButton: document.querySelector("#clear-preset"),
   startTime: document.querySelector("#start-time"),
   quickStart: document.querySelector("#quick-start"),
+  createPresetButton: document.querySelector("#create-preset"),
+  shareResult: document.querySelector("#share-result"),
+  presetQr: document.querySelector("#preset-qr"),
+  presetUrl: document.querySelector("#preset-url"),
+  copyPresetButton: document.querySelector("#copy-preset"),
+  sharePresetButton: document.querySelector("#share-preset"),
+  shareStatus: document.querySelector("#share-status"),
   goButton: document.querySelector("#go-button"),
   formHint: document.querySelector("#form-hint"),
   setupPanel: document.querySelector(".setup-panel"),
@@ -52,6 +70,11 @@ const elements = {
 const state = {
   file: null,
   objectUrl: null,
+  fileHash: null,
+  hashStatus: "idle",
+  hashRequest: 0,
+  requiredHash: null,
+  sharedPresetUrl: null,
   startAt: null,
   clockOffset: 0,
   clockSource: "local",
@@ -92,6 +115,7 @@ function saveSettings() {
         name: state.file.name,
         size: state.file.size,
         lastModified: state.file.lastModified,
+        sha256: state.fileHash,
       }
     : previous.file;
 
@@ -107,8 +131,19 @@ function saveSettings() {
 function restoreSettings() {
   const saved = loadSettings();
   const defaultStart = Math.ceil((Date.now() + 2 * 60_000) / 60_000) * 60_000;
-  state.startAt = Number.isFinite(saved.startAt) ? saved.startAt : defaultStart;
+  const preset = parsePresetUrl(location.href);
+  state.startAt = preset?.startAt ?? (Number.isFinite(saved.startAt) ? saved.startAt : defaultStart);
+  state.requiredHash = preset?.sha256 ?? null;
   elements.startTime.value = toLocalDateTimeValue(state.startAt);
+
+  if (preset) {
+    const localStart = new Date(preset.startAt).toLocaleString([], {
+      dateStyle: "medium",
+      timeStyle: "long",
+    });
+    elements.presetNotice.hidden = false;
+    elements.presetDetail.textContent = `${localStart} · expected SHA-256 ${abbreviateHash(preset.sha256)}`;
+  }
 
   if (saved.file?.name) {
     elements.rememberedFile.hidden = false;
@@ -119,10 +154,24 @@ function restoreSettings() {
 function updateFormState() {
   const parsedStart = new Date(elements.startTime.value).getTime();
   const validStart = Number.isFinite(parsedStart);
-  elements.goButton.disabled = !state.file || !validStart;
+  const calculatingHash = state.hashStatus === "calculating";
+  const hashMismatch = Boolean(
+    state.requiredHash && state.fileHash && state.requiredHash !== state.fileHash,
+  );
+  const presetUnverified = Boolean(state.requiredHash && !state.fileHash);
+  elements.goButton.disabled = !state.file || !validStart || calculatingHash || hashMismatch || presetUnverified;
+  elements.createPresetButton.disabled = !state.fileHash || !validStart || hashMismatch;
 
   if (!state.file) {
-    elements.formHint.textContent = "Choose a track to continue.";
+    elements.formHint.textContent = state.requiredHash
+      ? "Choose the local audio file referenced by this preset."
+      : "Choose a track to continue.";
+  } else if (calculatingHash) {
+    elements.formHint.textContent = "Calculating the file fingerprint…";
+  } else if (hashMismatch) {
+    elements.formHint.textContent = "This file does not match the shared preset. Choose the matching file or ignore the preset.";
+  } else if (presetUnverified) {
+    elements.formHint.textContent = "The shared preset cannot be verified without a file fingerprint.";
   } else if (!validStart) {
     elements.formHint.textContent = "Choose a valid shared start time.";
   } else {
@@ -337,17 +386,74 @@ function releaseAudioUrl() {
   state.objectUrl = null;
 }
 
-function selectFile(file) {
+function abbreviateHash(hash) {
+  return `${hash.slice(0, 10)}…${hash.slice(-8)}`;
+}
+
+function invalidateShareResult() {
+  state.sharedPresetUrl = null;
+  elements.shareResult.hidden = true;
+  elements.presetUrl.value = "";
+  elements.presetQr.replaceChildren();
+  elements.copyPresetButton.textContent = "Copy link";
+  elements.shareStatus.textContent = "The QR code is generated here; the audio never leaves this device.";
+}
+
+function updateHashDisplay() {
+  elements.fileFingerprint.hidden = state.hashStatus === "idle";
+  elements.hashStatus.classList.remove("verified", "mismatch", "error");
+  elements.copyHashButton.hidden = !state.fileHash;
+  elements.fileHash.textContent = state.fileHash ?? "";
+
+  if (state.hashStatus === "calculating") {
+    elements.hashStatus.textContent = "Calculating SHA-256…";
+  } else if (state.hashStatus === "error") {
+    elements.hashStatus.classList.add("error");
+    elements.hashStatus.textContent = "Couldn’t calculate SHA-256";
+  } else if (state.requiredHash && state.fileHash === state.requiredHash) {
+    elements.hashStatus.classList.add("verified");
+    elements.hashStatus.textContent = "✓ Matches shared preset";
+  } else if (state.requiredHash && state.fileHash !== state.requiredHash) {
+    elements.hashStatus.classList.add("mismatch");
+    elements.hashStatus.textContent = "Does not match shared preset";
+  } else if (state.fileHash) {
+    elements.hashStatus.textContent = "SHA-256 fingerprint";
+  }
+}
+
+async function selectFile(file) {
   if (!file) return;
   releaseAudioUrl();
+  invalidateShareResult();
   state.file = file;
+  state.fileHash = null;
+  state.hashStatus = "calculating";
+  const hashRequest = ++state.hashRequest;
+  elements.copyHashButton.textContent = "Copy hash";
   state.objectUrl = URL.createObjectURL(file);
   elements.audio.src = state.objectUrl;
   elements.audio.load();
   elements.fileTitle.textContent = file.name;
-  elements.fileDetail.textContent = `${formatFileSize(file.size)} · stored only on this device`;
+  elements.fileDetail.textContent = `${formatFileSize(file.size)} · hashing locally…`;
   elements.rememberedFile.hidden = true;
   saveSettings();
+  updateHashDisplay();
+  updateFormState();
+
+  try {
+    const hash = await sha256Hex(await file.arrayBuffer());
+    if (hashRequest !== state.hashRequest) return;
+    state.fileHash = hash;
+    state.hashStatus = "ready";
+    elements.fileDetail.textContent = `${formatFileSize(file.size)} · stored only on this device`;
+    saveSettings();
+  } catch (error) {
+    if (hashRequest !== state.hashRequest) return;
+    state.hashStatus = "error";
+    elements.fileDetail.textContent = `${formatFileSize(file.size)} · fingerprint unavailable`;
+    console.error("Could not calculate the file fingerprint.", error);
+  }
+  updateHashDisplay();
   updateFormState();
 }
 
@@ -361,6 +467,44 @@ function formatFileSize(bytes) {
     unit += 1;
   }
   return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`;
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  document.body.append(field);
+  field.select();
+  const copied = document.execCommand("copy");
+  field.remove();
+  if (!copied) throw new Error("Copy was not available");
+}
+
+function createSharePreset() {
+  const startAt = new Date(elements.startTime.value).getTime();
+  if (!state.fileHash || !Number.isFinite(startAt)) return;
+  const presetUrl = createPresetUrl(location.href, startAt, state.fileHash);
+  const qr = qrcode(0, "M");
+  qr.addData(presetUrl);
+  qr.make();
+
+  state.sharedPresetUrl = presetUrl;
+  elements.presetUrl.value = presetUrl;
+  elements.presetQr.innerHTML = qr.createSvgTag({
+    cellSize: 4,
+    margin: 16,
+    scalable: true,
+    title: "Drifter preset QR code",
+    alt: "Scan to open this start time and file fingerprint",
+  });
+  elements.shareResult.hidden = false;
+  elements.shareResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 async function unlockAudio() {
@@ -567,6 +711,7 @@ elements.startTime.addEventListener("change", () => {
     state.startAt = startAt;
     saveSettings();
   }
+  invalidateShareResult();
   updateFormState();
 });
 
@@ -574,7 +719,63 @@ elements.quickStart.addEventListener("click", () => {
   state.startAt = Math.ceil((synchronizedNow() + 2 * 60_000) / 60_000) * 60_000;
   elements.startTime.value = toLocalDateTimeValue(state.startAt);
   saveSettings();
+  invalidateShareResult();
   updateFormState();
+});
+
+elements.clearPresetButton.addEventListener("click", () => {
+  state.requiredHash = null;
+  elements.presetNotice.hidden = true;
+  const url = new URL(location.href);
+  url.searchParams.delete("start");
+  url.searchParams.delete("sha256");
+  history.replaceState(null, "", url);
+  updateHashDisplay();
+  updateFormState();
+});
+
+elements.copyHashButton.addEventListener("click", async () => {
+  if (!state.fileHash) return;
+  try {
+    await copyText(state.fileHash);
+    elements.copyHashButton.textContent = "Copied";
+    window.setTimeout(() => { elements.copyHashButton.textContent = "Copy hash"; }, 1600);
+  } catch (error) {
+    console.error("Could not copy the fingerprint.", error);
+    elements.copyHashButton.textContent = "Copy failed";
+  }
+});
+
+elements.createPresetButton.addEventListener("click", createSharePreset);
+
+elements.copyPresetButton.addEventListener("click", async () => {
+  if (!state.sharedPresetUrl) return;
+  try {
+    await copyText(state.sharedPresetUrl);
+    elements.shareStatus.textContent = "Preset link copied.";
+    elements.copyPresetButton.textContent = "Copied";
+    window.setTimeout(() => { elements.copyPresetButton.textContent = "Copy link"; }, 1600);
+  } catch (error) {
+    console.error("Could not copy the preset link.", error);
+    elements.shareStatus.textContent = "Copy failed. Select the link above and copy it manually.";
+  }
+});
+
+elements.sharePresetButton.addEventListener("click", async () => {
+  if (!state.sharedPresetUrl || !navigator.share) return;
+  try {
+    await navigator.share({
+      title: "Drifter listening preset",
+      text: "Choose the matching audio file and join this shared start time.",
+      url: state.sharedPresetUrl,
+    });
+    elements.shareStatus.textContent = "Preset shared.";
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      console.error("Could not share the preset.", error);
+      elements.shareStatus.textContent = "Sharing was unavailable. Copy the link instead.";
+    }
+  }
 });
 
 elements.goButton.addEventListener("click", beginSession);
@@ -604,6 +805,7 @@ document.addEventListener("visibilitychange", () => {
 
 window.addEventListener("beforeunload", releaseAudioUrl);
 
+elements.sharePresetButton.hidden = typeof navigator.share !== "function";
 restoreSettings();
 updateFormState();
 syncClock();
