@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#111a18" />
+    <meta
+      name="description"
+      content="Play a local audio file together, synchronized to a shared start time."
+    />
+    <title>Drifter — listen together</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="container app-header">
+      <div>
+        <a class="wordmark" href="./" aria-label="Drifter home">
+          <span aria-hidden="true">◉</span> Drifter
+        </a>
+        <p>One track. One moment. Different paths.</p>
+      </div>
+      <button id="sync-clock" class="clock-pill secondary outline" type="button">
+        <span class="clock-dot" aria-hidden="true"></span>
+        <span id="clock-label">Syncing clock…</span>
+      </button>
+    </header>
+
+    <main class="container">
+      <section class="hero" aria-labelledby="page-title">
+        <p class="eyebrow">A shared soundtrack for wandering</p>
+        <h1 id="page-title">Press play together.<br /><em>Drift apart.</em></h1>
+        <p class="intro">
+          Everyone chooses the same audio file and start time. Drifter keeps each
+          device aligned while the file stays private on the device.
+        </p>
+      </section>
+
+      <section class="panel setup-panel" aria-labelledby="setup-title">
+        <div class="section-heading">
+          <span class="step-number" aria-hidden="true">01</span>
+          <div>
+            <h2 id="setup-title">Choose the track</h2>
+            <p>Select the same downloaded file on every device.</p>
+          </div>
+        </div>
+
+        <label class="file-drop" for="audio-file">
+          <input id="audio-file" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac" />
+          <span class="file-icon" aria-hidden="true">♫</span>
+          <span>
+            <strong id="file-title">Choose an audio file</strong>
+            <small id="file-detail">MP3, M4A, WAV, OGG, or FLAC · never uploaded</small>
+          </span>
+        </label>
+        <p id="remembered-file" class="remembered-file" hidden></p>
+
+        <hr />
+
+        <div class="section-heading">
+          <span class="step-number" aria-hidden="true">02</span>
+          <div>
+            <h2>Set the shared start</h2>
+            <p>Use the same date and local time on each device.</p>
+          </div>
+        </div>
+
+        <div class="time-row">
+          <label for="start-time">
+            Date and time
+            <input id="start-time" type="datetime-local" step="1" />
+          </label>
+          <button id="quick-start" class="secondary outline quick-start" type="button">
+            In 2 minutes
+          </button>
+        </div>
+
+        <details class="time-details">
+          <summary>How synchronization works</summary>
+          <p>
+            Drifter estimates the difference between this device's clock and the
+            website server. If the start time has passed, it jumps to the matching
+            point in the track. Small playback drift is corrected automatically.
+          </p>
+        </details>
+
+        <button id="go-button" class="go-button" type="button" disabled>
+          <span>Go</span>
+          <span aria-hidden="true">→</span>
+        </button>
+        <p id="form-hint" class="form-hint" aria-live="polite">Choose a track to continue.</p>
+      </section>
+
+      <section id="player-panel" class="panel player-panel" aria-labelledby="player-title" hidden>
+        <div class="player-topline">
+          <p id="state-label" class="eyebrow">Waiting</p>
+          <p id="sync-status" class="sync-status">Aligned</p>
+        </div>
+        <h2 id="player-title">Ready to drift</h2>
+        <p id="player-message" class="player-message">Playback will begin at the shared time.</p>
+
+        <div class="countdown" aria-live="polite">
+          <span id="countdown-value">00:00</span>
+          <small id="countdown-label">until the track starts</small>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="timecodes">
+            <span id="elapsed-time">0:00</span>
+            <span id="duration-time">—:—</span>
+          </div>
+          <progress id="track-progress" value="0" max="1"></progress>
+        </div>
+
+        <div class="player-actions">
+          <button id="pause-button" class="contrast" type="button" disabled>
+            Pause
+          </button>
+          <button id="leave-button" class="secondary outline" type="button">
+            Change setup
+          </button>
+        </div>
+        <p class="pause-note">
+          Pausing affects only this device. Rejoin jumps back to the group's current position.
+        </p>
+      </section>
+
+      <section class="privacy-note" aria-label="Privacy note">
+        <span aria-hidden="true">⌁</span>
+        <p><strong>Your audio stays yours.</strong> Drifter plays local files directly. Nothing is uploaded.</p>
+      </section>
+    </main>
+
+    <footer class="container">
+      <p>Made for shared sound and separate paths.</p>
+    </footer>
+
+    <audio id="audio" preload="metadata" playsinline></audio>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
