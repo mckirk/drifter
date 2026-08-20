@@ -32,6 +32,67 @@ export function selectBestClockSample(samples, serverPrecision = 1) {
   };
 }
 
+/** Normalize the bundled Worker response into the timestamps used by NTP math. */
+export function timestampsFromWorkerPayload(payload) {
+  if (
+    !Number.isFinite(payload?.serverReceiveTime) ||
+    !Number.isFinite(payload?.serverSendTime)
+  ) {
+    return null;
+  }
+  return {
+    serverReceiveTime: payload.serverReceiveTime,
+    serverSendTime: payload.serverSendTime,
+    precision: Number.isFinite(payload.precision) ? payload.precision : 1,
+  };
+}
+
+/** Normalize TimeAPI.io's UTC calendar response without relying on local parsing. */
+export function timestampsFromTimeApiPayload(payload) {
+  if (payload?.timeZone && payload.timeZone !== "UTC") return null;
+  const milliseconds = payload?.milliSeconds ?? payload?.milliseconds;
+  const fields = [
+    payload?.year,
+    payload?.month,
+    payload?.day,
+    payload?.hour,
+    payload?.minute,
+    payload?.seconds,
+    milliseconds,
+  ];
+  if (!fields.every(Number.isFinite)) return null;
+
+  const timestamp = Date.UTC(
+    payload.year,
+    payload.month - 1,
+    payload.day,
+    payload.hour,
+    payload.minute,
+    payload.seconds,
+    milliseconds,
+  );
+  if (!Number.isFinite(timestamp)) return null;
+
+  const parsed = new Date(timestamp);
+  if (
+    parsed.getUTCFullYear() !== payload.year ||
+    parsed.getUTCMonth() !== payload.month - 1 ||
+    parsed.getUTCDate() !== payload.day ||
+    parsed.getUTCHours() !== payload.hour ||
+    parsed.getUTCMinutes() !== payload.minute ||
+    parsed.getUTCSeconds() !== payload.seconds ||
+    parsed.getUTCMilliseconds() !== milliseconds
+  ) {
+    return null;
+  }
+
+  return {
+    serverReceiveTime: timestamp,
+    serverSendTime: timestamp,
+    precision: 1,
+  };
+}
+
 /** Median is resistant to a single slow or cached clock request. */
 export function median(values) {
   if (!values.length) return 0;

@@ -11,4 +11,4 @@ await writeFile(
   `window.DRIFTER_CONFIG = ${JSON.stringify({ clockEndpoint }, null, 2)};\n`,
 );
 
-console.log(clockEndpoint ? "Configured the precision clock endpoint." : "No precision clock endpoint configured; fallbacks remain enabled.");
+console.log(clockEndpoint ? "Configured the custom clock endpoint." : "Using the public HTTPS clock by default.");

@@ -1,4 +1,4 @@
-name: Deploy precision clock
+name: Deploy optional custom clock
 
 on:
   workflow_dispatch:

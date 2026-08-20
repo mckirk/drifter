@@ -8,6 +8,8 @@ import {
   median,
   ntpSample,
   selectBestClockSample,
+  timestampsFromTimeApiPayload,
+  timestampsFromWorkerPayload,
   toLocalDateTimeValue,
 } from "../drifter-core.js";
 
@@ -37,6 +39,48 @@ test("selects the lowest-delay clock sample and estimates uncertainty", () => {
   assert.equal(result.offset, 40);
   assert.equal(result.roundTrip, 20);
   assert.equal(result.uncertainty, 11);
+});
+
+test("normalizes the custom Worker clock response", () => {
+  assert.deepEqual(
+    timestampsFromWorkerPayload({
+      serverReceiveTime: 1_000,
+      serverSendTime: 1_001,
+      precision: 2,
+    }),
+    { serverReceiveTime: 1_000, serverSendTime: 1_001, precision: 2 },
+  );
+  assert.equal(timestampsFromWorkerPayload({ serverReceiveTime: "nope" }), null);
+});
+
+test("normalizes TimeAPI.io's UTC calendar response", () => {
+  const result = timestampsFromTimeApiPayload({
+    year: 2026,
+    month: 8,
+    day: 20,
+    hour: 17,
+    minute: 42,
+    seconds: 12,
+    milliSeconds: 345,
+    timeZone: "UTC",
+  });
+  const timestamp = Date.UTC(2026, 7, 20, 17, 42, 12, 345);
+  assert.deepEqual(result, {
+    serverReceiveTime: timestamp,
+    serverSendTime: timestamp,
+    precision: 1,
+  });
+  assert.equal(timestampsFromTimeApiPayload({ year: 2026 }), null);
+  assert.equal(timestampsFromTimeApiPayload({
+    year: 2026,
+    month: 8,
+    day: 20,
+    hour: 17,
+    minute: 42,
+    seconds: 12,
+    milliSeconds: 345,
+    timeZone: "Europe/Berlin",
+  }), null);
 });
 
 test("maps wall time onto track position", () => {

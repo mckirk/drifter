@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
-      - name: Configure precision clock
+      - name: Configure optional custom clock
         env:
           DRIFTER_CLOCK_URL: ${{ vars.DRIFTER_CLOCK_URL }}
         run: node scripts/configure-pages.mjs

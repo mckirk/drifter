@@ -5,13 +5,17 @@ import {
   median,
   ntpSample,
   selectBestClockSample,
+  timestampsFromTimeApiPayload,
+  timestampsFromWorkerPayload,
   toLocalDateTimeValue,
 } from "./drifter-core.js";
 
 const STORAGE_KEY = "drifter.settings.v1";
-const PRECISION_CLOCK_SAMPLES = 9;
+const PUBLIC_CLOCK_ENDPOINT = "https://timeapi.io/api/Time/current/zone?timeZone=UTC";
+const PRECISION_CLOCK_SAMPLES = 7;
 const COARSE_CLOCK_SAMPLES = 5;
-const CLOCK_REFRESH_MS = 60_000;
+const CUSTOM_CLOCK_REFRESH_MS = 60_000;
+const PUBLIC_CLOCK_REFRESH_MS = 5 * 60_000;
 const CLOCK_FRESH_MS = 30_000;
 const CLOCK_STALE_GRACE_MS = 5 * 60_000;
 const HARD_DRIFT_SECONDS = 0.1;
@@ -52,6 +56,7 @@ const state = {
   clockOffset: 0,
   clockSource: "local",
   clockUncertainty: Infinity,
+  clockProvider: "device",
   clockSyncedAt: 0,
   clockSyncPromise: null,
   mode: "setup",
@@ -154,13 +159,14 @@ function applyClockResult(result) {
   state.clockOffset = result.offset;
   state.clockSource = result.source;
   state.clockUncertainty = result.uncertainty;
+  state.clockProvider = result.provider ?? result.source;
   state.clockSyncedAt = clientNow();
   setClockDisplay(result.source, result.uncertainty);
-  elements.clockButton.title = `Estimated clock adjustment: ${Math.round(result.offset)}ms`;
+  elements.clockButton.title = `${result.label ?? "Clock"}; estimated adjustment: ${Math.round(result.offset)}ms`;
   if (state.mode === "waiting") schedulePlaybackStart();
 }
 
-async function samplePrecisionClock(endpoint) {
+async function samplePrecisionClock({ endpoint, label, parsePayload, provider }) {
   const samples = [];
   let serverPrecision = 1;
   let successfulResponses = 0;
@@ -171,32 +177,31 @@ async function samplePrecisionClock(endpoint) {
     const timeout = window.setTimeout(() => controller.abort(), 2000);
     try {
       const clockUrl = new URL(endpoint);
-      clockUrl.searchParams.set("nonce", `${Date.now()}-${index}`);
+      const nonce = crypto.randomUUID?.() ?? `${Math.round(performance.now())}-${index}`;
+      clockUrl.searchParams.set("_drifter", nonce);
       const clientSend = clientNow();
       const response = await fetch(clockUrl, {
         cache: "no-store",
         credentials: "omit",
         mode: "cors",
+        referrerPolicy: "no-referrer",
         signal: controller.signal,
       });
       const payload = await response.json();
       const clientReceive = clientNow();
+      const timestamps = parsePayload(payload);
 
-      if (
-        !response.ok ||
-        !Number.isFinite(payload.serverReceiveTime) ||
-        !Number.isFinite(payload.serverSendTime)
-      ) {
+      if (!response.ok || !timestamps) {
         throw new Error("Invalid precision clock response");
       }
 
-      serverPrecision = Number.isFinite(payload.precision) ? payload.precision : 1;
+      serverPrecision = timestamps.precision;
       // The first successful request includes connection setup and is a warm-up.
       if (successfulResponses > 0) {
         samples.push(ntpSample(
           clientSend,
-          payload.serverReceiveTime,
-          payload.serverSendTime,
+          timestamps.serverReceiveTime,
+          timestamps.serverSendTime,
           clientReceive,
         ));
       }
@@ -214,7 +219,7 @@ async function samplePrecisionClock(endpoint) {
   if (samples.length < 3) throw new Error("Not enough precision clock samples");
   const best = selectBestClockSample(samples, serverPrecision);
   if (!best) throw new Error("No usable precision clock samples");
-  return { ...best, source: "precision" };
+  return { ...best, source: "precision", provider, label };
 }
 
 async function sampleCoarseClock() {
@@ -245,6 +250,8 @@ async function sampleCoarseClock() {
     offset: median(fastest.map((sample) => sample.offset)),
     uncertainty: 500 + fastest[0].roundTrip / 2,
     source: "coarse",
+    provider: "github",
+    label: "GitHub header clock",
   };
 }
 
@@ -252,19 +259,36 @@ async function performClockSync(silent) {
   if (!silent) setClockDisplay("syncing");
   elements.clockButton.disabled = true;
 
+  const providers = [];
   if (config.clockEndpoint) {
+    providers.push({
+      endpoint: config.clockEndpoint,
+      label: "Custom edge clock",
+      parsePayload: timestampsFromWorkerPayload,
+      provider: "worker",
+    });
+  }
+  providers.push({
+    endpoint: PUBLIC_CLOCK_ENDPOINT,
+    label: "Public clock (TimeAPI.io)",
+    parsePayload: timestampsFromTimeApiPayload,
+    provider: "timeapi",
+  });
+
+  for (const provider of providers) {
     try {
-      const result = await samplePrecisionClock(config.clockEndpoint);
+      const result = await samplePrecisionClock(provider);
       applyClockResult(result);
       return result;
     } catch (error) {
-      console.warn("Precision clock synchronization failed.", error);
-      const preciseClockAge = clientNow() - state.clockSyncedAt;
-      if (state.clockSource === "precision" && preciseClockAge < CLOCK_STALE_GRACE_MS) {
-        setClockDisplay("stale", state.clockUncertainty);
-        return null;
-      }
+      console.warn(`${provider.label} synchronization failed.`, error);
     }
+  }
+
+  const preciseClockAge = clientNow() - state.clockSyncedAt;
+  if (state.clockSource === "precision" && preciseClockAge < CLOCK_STALE_GRACE_MS) {
+    setClockDisplay("stale", state.clockUncertainty);
+    return null;
   }
 
   try {
@@ -273,7 +297,13 @@ async function performClockSync(silent) {
     return result;
   } catch (error) {
     console.warn("Clock synchronization unavailable; using the device clock.", error);
-    applyClockResult({ offset: 0, uncertainty: Infinity, source: "local" });
+    applyClockResult({
+      offset: 0,
+      uncertainty: Infinity,
+      source: "local",
+      provider: "device",
+      label: "Device clock",
+    });
     return null;
   }
 }
@@ -287,7 +317,19 @@ async function syncClock({ silent = false } = {}) {
     state.clockSyncPromise = null;
     elements.clockButton.disabled = false;
     updateFormState();
+    scheduleNextClockRefresh();
   }
+}
+
+function scheduleNextClockRefresh() {
+  window.clearTimeout(state.clockRefreshTicker);
+  const delay = state.clockProvider === "worker"
+    ? CUSTOM_CLOCK_REFRESH_MS
+    : PUBLIC_CLOCK_REFRESH_MS;
+  state.clockRefreshTicker = window.setTimeout(async () => {
+    if (document.visibilityState === "visible") await syncClock({ silent: true });
+    else scheduleNextClockRefresh();
+  }, delay);
 }
 
 function releaseAudioUrl() {
@@ -496,7 +538,7 @@ function updatePlayer() {
   elements.trackProgress.max = Number.isFinite(duration) && duration > 0 ? duration : 1;
   elements.trackProgress.value = Number.isFinite(displayPosition) ? Math.min(displayPosition, elements.trackProgress.max) : 0;
   elements.syncStatus.textContent = state.clockSource === "precision"
-    ? `Aligned within ~${Math.ceil(state.clockUncertainty)}ms`
+    ? `${state.clockProvider === "worker" ? "Custom" : "Public"} clock · ~${Math.ceil(state.clockUncertainty)}ms`
     : state.clockSource === "coarse"
       ? "Approximate clock"
       : "Device clock";
@@ -565,6 +607,3 @@ window.addEventListener("beforeunload", releaseAudioUrl);
 restoreSettings();
 updateFormState();
 syncClock();
-state.clockRefreshTicker = window.setInterval(() => {
-  if (document.visibilityState === "visible") syncClock({ silent: true });
-}, CLOCK_REFRESH_MS);
