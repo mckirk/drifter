@@ -50,6 +50,11 @@ const elements = {
   copyPresetButton: document.querySelector("#copy-preset"),
   sharePresetButton: document.querySelector("#share-preset"),
   shareStatus: document.querySelector("#share-status"),
+  sessionPresetQr: document.querySelector("#session-preset-qr"),
+  sessionPresetUrl: document.querySelector("#session-preset-url"),
+  copySessionPresetButton: document.querySelector("#copy-session-preset"),
+  shareSessionPresetButton: document.querySelector("#share-session-preset"),
+  sessionShareStatus: document.querySelector("#session-share-status"),
   goButton: document.querySelector("#go-button"),
   formHint: document.querySelector("#form-hint"),
   setupPanel: document.querySelector(".setup-panel"),
@@ -403,8 +408,12 @@ function invalidateShareResult() {
   elements.shareResult.hidden = true;
   elements.presetUrl.value = "";
   elements.presetQr.replaceChildren();
+  elements.sessionPresetUrl.value = "";
+  elements.sessionPresetQr.replaceChildren();
   elements.copyPresetButton.textContent = "Copy link";
+  elements.copySessionPresetButton.textContent = "Copy link";
   elements.shareStatus.textContent = "The QR code is generated here; the audio never leaves this device.";
+  elements.sessionShareStatus.textContent = "The QR code contains no audio; the file stays on this device.";
 }
 
 function updateHashDisplay() {
@@ -494,7 +503,7 @@ async function copyText(text) {
   if (!copied) throw new Error("Copy was not available");
 }
 
-function createSharePreset() {
+function createSharePreset({ scroll = true } = {}) {
   const startAt = new Date(elements.startTime.value).getTime();
   if (!state.fileHash || !Number.isFinite(startAt)) return;
   const presetUrl = createPresetUrl(location.href, startAt, state.fileHash);
@@ -504,15 +513,18 @@ function createSharePreset() {
 
   state.sharedPresetUrl = presetUrl;
   elements.presetUrl.value = presetUrl;
-  elements.presetQr.innerHTML = qr.createSvgTag({
+  elements.sessionPresetUrl.value = presetUrl;
+  const qrSvg = qr.createSvgTag({
     cellSize: 4,
     margin: 16,
     scalable: true,
     title: "Drifter preset QR code",
     alt: "Scan to open this start time and file fingerprint",
   });
+  elements.presetQr.innerHTML = qrSvg;
+  elements.sessionPresetQr.innerHTML = qrSvg;
   elements.shareResult.hidden = false;
-  elements.shareResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (scroll) elements.shareResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 async function unlockAudio() {
@@ -562,6 +574,7 @@ async function beginSession() {
   if (!Number.isFinite(startAt)) return;
 
   state.startAt = startAt;
+  createSharePreset({ scroll: false });
   saveSettings();
   showPlayer();
   // Invoke these immediately so the click's user activation reaches the media
@@ -781,22 +794,22 @@ elements.copyHashButton.addEventListener("click", async () => {
   }
 });
 
-elements.createPresetButton.addEventListener("click", createSharePreset);
+elements.createPresetButton.addEventListener("click", () => createSharePreset());
 
-elements.copyPresetButton.addEventListener("click", async () => {
+async function copyPreset(button, status) {
   if (!state.sharedPresetUrl) return;
   try {
     await copyText(state.sharedPresetUrl);
-    elements.shareStatus.textContent = "Preset link copied.";
-    elements.copyPresetButton.textContent = "Copied";
-    window.setTimeout(() => { elements.copyPresetButton.textContent = "Copy link"; }, 1600);
+    status.textContent = "Session link copied.";
+    button.textContent = "Copied";
+    window.setTimeout(() => { button.textContent = "Copy link"; }, 1600);
   } catch (error) {
     console.error("Could not copy the preset link.", error);
-    elements.shareStatus.textContent = "Copy failed. Select the link above and copy it manually.";
+    status.textContent = "Copy failed. Select the link above and copy it manually.";
   }
-});
+}
 
-elements.sharePresetButton.addEventListener("click", async () => {
+async function sharePreset(status) {
   if (!state.sharedPresetUrl || !navigator.share) return;
   try {
     await navigator.share({
@@ -804,14 +817,23 @@ elements.sharePresetButton.addEventListener("click", async () => {
       text: "Choose the matching audio file and join this shared start time.",
       url: state.sharedPresetUrl,
     });
-    elements.shareStatus.textContent = "Preset shared.";
+    status.textContent = "Session shared.";
   } catch (error) {
     if (error.name !== "AbortError") {
       console.error("Could not share the preset.", error);
-      elements.shareStatus.textContent = "Sharing was unavailable. Copy the link instead.";
+      status.textContent = "Sharing was unavailable. Copy the link instead.";
     }
   }
+}
+
+elements.copyPresetButton.addEventListener("click", () => {
+  copyPreset(elements.copyPresetButton, elements.shareStatus);
 });
+elements.copySessionPresetButton.addEventListener("click", () => {
+  copyPreset(elements.copySessionPresetButton, elements.sessionShareStatus);
+});
+elements.sharePresetButton.addEventListener("click", () => sharePreset(elements.shareStatus));
+elements.shareSessionPresetButton.addEventListener("click", () => sharePreset(elements.sessionShareStatus));
 
 elements.goButton.addEventListener("click", beginSession);
 elements.pauseButton.addEventListener("click", togglePause);
@@ -843,6 +865,7 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("beforeunload", releaseAudioUrl);
 
 elements.sharePresetButton.hidden = typeof navigator.share !== "function";
+elements.shareSessionPresetButton.hidden = typeof navigator.share !== "function";
 restoreSettings();
 updateFormState();
 syncClock();

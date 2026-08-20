@@ -159,6 +159,10 @@ test("a desktop creates a preset and a mobile joins the same session", async ({ 
           desktopPage.locator("#go-button").click(),
           mobilePage.locator("#go-button").click(),
         ]);
+        await expect(desktopPage.locator("#session-preset-qr svg")).toBeVisible();
+        await expect(mobilePage.locator("#session-preset-qr svg")).toBeVisible();
+        await expect(desktopPage.locator("#session-preset-url")).toHaveValue(presetUrl);
+        await expect(mobilePage.locator("#session-preset-url")).toHaveValue(presetUrl);
         await expect(desktopPage.locator("#state-label")).toHaveText("Waiting");
         await expect(mobilePage.locator("#state-label")).toHaveText("Waiting");
         await expect(desktopPage.locator("#state-label")).toHaveText("Playing", { timeout: 15_000 });
