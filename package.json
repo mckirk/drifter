@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "check": "node --check app.js && node --check drifter-core.js"
+    "check": "node --check app.js && node --check drifter-core.js && node --check runtime-config.js && node --check clock-worker/src/index.js && node --check scripts/configure-pages.mjs"
   }
 }

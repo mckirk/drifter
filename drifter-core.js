@@ -3,6 +3,35 @@ export function clockOffsetFromSample(clientStart, clientEnd, serverTime) {
   return serverTime - (clientStart + clientEnd) / 2;
 }
 
+/**
+ * Calculate an NTP-style sample from the four timestamps in one exchange.
+ * All values are Unix epoch milliseconds.
+ */
+export function ntpSample(clientSend, serverReceive, serverSend, clientReceive) {
+  const serverProcessing = Math.max(0, serverSend - serverReceive);
+  return {
+    offset: ((serverReceive - clientSend) + (serverSend - clientReceive)) / 2,
+    roundTrip: Math.max(0, clientReceive - clientSend - serverProcessing),
+  };
+}
+
+/** Select the sample least affected by network queueing and estimate its error. */
+export function selectBestClockSample(samples, serverPrecision = 1) {
+  const sorted = samples
+    .filter((sample) => Number.isFinite(sample.offset) && Number.isFinite(sample.roundTrip))
+    .sort((a, b) => a.roundTrip - b.roundTrip);
+
+  if (!sorted.length) return null;
+  const best = sorted[0];
+  const nearby = sorted.slice(0, Math.min(5, sorted.length));
+  const jitter = median(nearby.map((sample) => Math.abs(sample.offset - best.offset)));
+  return {
+    ...best,
+    jitter,
+    uncertainty: Math.ceil(Math.max(best.roundTrip / 2, jitter) + serverPrecision),
+  };
+}
+
 /** Median is resistant to a single slow or cached clock request. */
 export function median(values) {
   if (!values.length) return 0;

@@ -96,6 +96,11 @@ body {
   box-shadow: 0 0 0.5rem rgba(199, 255, 104, 0.65);
 }
 
+.clock-pill.coarse .clock-dot {
+  background: #f2b84b;
+  box-shadow: 0 0 0.5rem rgba(242, 184, 75, 0.6);
+}
+
 .clock-pill.local .clock-dot {
   background: #ff9d78;
   box-shadow: 0 0 0.5rem rgba(255, 157, 120, 0.45);

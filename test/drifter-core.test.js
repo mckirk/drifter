@@ -6,6 +6,8 @@ import {
   expectedPosition,
   formatDuration,
   median,
+  ntpSample,
+  selectBestClockSample,
   toLocalDateTimeValue,
 } from "../drifter-core.js";
 
@@ -17,6 +19,24 @@ test("calculates median values", () => {
   assert.equal(median([30, 10, 20]), 20);
   assert.equal(median([10, 30, 20, 40]), 25);
   assert.equal(median([]), 0);
+});
+
+test("calculates a four-timestamp NTP sample", () => {
+  assert.deepEqual(ntpSample(1_000, 1_300, 1_305, 1_110), {
+    offset: 247.5,
+    roundTrip: 105,
+  });
+});
+
+test("selects the lowest-delay clock sample and estimates uncertainty", () => {
+  const result = selectBestClockSample([
+    { offset: 42, roundTrip: 80 },
+    { offset: 40, roundTrip: 20 },
+    { offset: 41, roundTrip: 35 },
+  ]);
+  assert.equal(result.offset, 40);
+  assert.equal(result.roundTrip, 20);
+  assert.equal(result.uncertainty, 11);
 });
 
 test("maps wall time onto track position", () => {

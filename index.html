@@ -82,9 +82,10 @@
         <details class="time-details">
           <summary>How synchronization works</summary>
           <p>
-            Drifter estimates the difference between this device's clock and the
-            website server. If the start time has passed, it jumps to the matching
-            point in the track. Small playback drift is corrected automatically.
+            Drifter uses several timestamp exchanges with a nearby edge clock and
+            selects the least delayed result. If the start time has passed, it jumps
+            to the matching point in the track. Small playback drift is corrected
+            automatically.
           </p>
         </details>
 
@@ -140,6 +141,7 @@
     </footer>
 
     <audio id="audio" preload="metadata" playsinline></audio>
+    <script src="runtime-config.js"></script>
     <script type="module" src="app.js"></script>
   </body>
 </html>
