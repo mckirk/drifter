@@ -739,7 +739,12 @@ function correctPlaybackDrift() {
   }
 }
 
-elements.fileInput.addEventListener("change", (event) => selectFile(event.target.files?.[0]));
+// Clear the native value before opening the picker so choosing the same file
+// again still emits `change` (needed after a failed decode or hash attempt).
+elements.fileInput.addEventListener("click", () => {
+  elements.fileInput.value = "";
+});
+elements.fileInput.addEventListener("change", (event) => selectFile(event.currentTarget.files?.[0]));
 
 elements.startTime.addEventListener("change", () => {
   const startAt = new Date(elements.startTime.value).getTime();

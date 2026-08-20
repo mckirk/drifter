@@ -182,7 +182,9 @@ body {
 }
 
 .file-drop {
+  position: relative;
   display: flex;
+  overflow: hidden;
   min-height: 5.2rem;
   margin: 0;
   padding: 1rem;
@@ -196,22 +198,27 @@ body {
 }
 
 .file-drop:hover,
-.file-input-visually-hidden:focus-visible + .file-drop {
+.file-drop:focus-within {
   border-color: var(--drifter-lime);
   background: #17231e;
 }
 
-.file-input-visually-hidden {
+.file-drop > input[type="file"].file-input-overlay {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  opacity: 0;
+  cursor: pointer;
 }
 
-.file-input-visually-hidden:focus-visible + .file-drop {
+.file-drop:focus-within {
   outline: 2px solid var(--pico-primary-focus);
   outline-offset: 3px;
 }

@@ -14,7 +14,7 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
     />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260820-file-picker" />
   </head>
   <body>
     <header class="container app-header">
@@ -59,13 +59,13 @@
           </button>
         </aside>
 
-        <input
-          id="audio-file"
-          class="file-input-visually-hidden"
-          type="file"
-          accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac"
-        />
         <label class="file-drop" for="audio-file">
+          <input
+            id="audio-file"
+            class="file-input-overlay"
+            type="file"
+            accept=".mp3,.m4a,.wav,.ogg,.flac,audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/wav,audio/x-wav,audio/ogg,application/ogg,audio/flac,audio/x-flac"
+          />
           <span class="file-icon" aria-hidden="true">♫</span>
           <span>
             <strong id="file-title">Choose an audio file</strong>
@@ -214,6 +214,6 @@
 
     <audio id="audio" preload="metadata" playsinline></audio>
     <script src="runtime-config.js"></script>
-    <script type="module" src="app.js?v=20260820-session-share-card"></script>
+    <script type="module" src="app.js?v=20260820-file-picker"></script>
   </body>
 </html>

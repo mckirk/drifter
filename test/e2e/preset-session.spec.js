@@ -66,18 +66,35 @@ async function chooseTrack(page, track, expectedHash) {
   await expect(page.locator("#file-hash")).toHaveText(expectedHash);
 }
 
-async function expectNoInvisibleControlOverlays(page) {
+async function expectFileInputToBeThePickerSurface(page) {
   const overlays = await page.locator("a[href], button, input, select, summary, textarea").evaluateAll(
     (controls) => controls.flatMap((control) => {
       const style = getComputedStyle(control);
       const box = control.getBoundingClientRect();
       const isLargeInvisibleOverlay = style.opacity === "0" && box.width > 8 && box.height > 8;
-      return isLargeInvisibleOverlay
+      return isLargeInvisibleOverlay && control.id !== "audio-file"
         ? [{ tag: control.tagName, id: control.id, width: box.width, height: box.height }]
         : [];
     }),
   );
   expect(overlays).toEqual([]);
+
+  const pickerSurface = await page.locator(".file-drop").evaluate((card) => {
+    const input = card.querySelector("input[type=file]");
+    const title = card.querySelector("strong");
+    const cardBox = card.getBoundingClientRect();
+    const inputBox = input.getBoundingClientRect();
+    const titleBox = title.getBoundingClientRect();
+    const hitTarget = document.elementFromPoint(
+      titleBox.left + titleBox.width / 2,
+      titleBox.top + titleBox.height / 2,
+    );
+    return {
+      inputCoversCard: inputBox.width >= cardBox.width - 4 && inputBox.height >= cardBox.height - 4,
+      titleTapHitsInput: hitTarget === input,
+    };
+  });
+  expect(pickerSurface).toEqual({ inputCoversCard: true, titleTapHitsInput: true });
 }
 
 async function chooseTrackThroughVisiblePicker(page, track, expectedHash) {
@@ -86,9 +103,24 @@ async function chooseTrackThroughVisiblePicker(page, track, expectedHash) {
   await expect(dropTarget).toBeVisible();
   await expect(fileInput).toHaveAccessibleName(/Choose an audio file/);
 
+  await fileInput.evaluate((input) => {
+    input.dataset.changeCount = "0";
+    input.addEventListener("change", () => {
+      input.dataset.changeCount = String(Number(input.dataset.changeCount) + 1);
+    });
+  });
+
+  const tapVisibleTitle = async () => {
+    const point = await page.locator("#file-title").evaluate((title) => {
+      const box = title.getBoundingClientRect();
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    });
+    return page.touchscreen.tap(point.x, point.y);
+  };
+
   const [fileChooser] = await Promise.all([
     page.waitForEvent("filechooser", { timeout: 5_000 }),
-    page.getByText("Choose an audio file", { exact: true }).tap(),
+    tapVisibleTitle(),
   ]);
   expect(fileChooser.isMultiple()).toBe(false);
   await fileChooser.setFiles({
@@ -97,6 +129,20 @@ async function chooseTrackThroughVisiblePicker(page, track, expectedHash) {
     buffer: track,
   });
   await expect(page.locator("#file-title")).toHaveText(TRACK_NAME);
+  await expect(page.locator("#file-hash")).toHaveText(expectedHash);
+  await expect(fileInput).toHaveAttribute("data-change-count", "1");
+
+  const [sameFileChooser] = await Promise.all([
+    page.waitForEvent("filechooser", { timeout: 5_000 }),
+    tapVisibleTitle(),
+  ]);
+  await expect(fileInput).toHaveValue("");
+  await sameFileChooser.setFiles({
+    name: TRACK_NAME,
+    mimeType: "audio/wav",
+    buffer: track,
+  });
+  await expect(fileInput).toHaveAttribute("data-change-count", "2");
   await expect(page.locator("#file-hash")).toHaveText(expectedHash);
 }
 
@@ -187,7 +233,9 @@ test("a desktop shares an active session and a mobile joins", async ({ browser, 
   }
 });
 
-test("a mobile shares an active session and a desktop joins", async ({ browser, browserName }) => {
+test("a mobile chooses a file, shares an active session, and a desktop joins", {
+  tag: "@file-picker",
+}, async ({ browser, browserName }) => {
   const track = createSilentWav();
   const expectedHash = createHash("sha256").update(track).digest("hex");
   const mobile = await browser.newContext({
@@ -206,7 +254,7 @@ test("a mobile shares an active session and a desktop joins", async ({ browser, 
 
     await test.step("tapping the visible mobile file control opens the native picker", async () => {
       await mobilePage.goto("/");
-      await expectNoInvisibleControlOverlays(mobilePage);
+      await expectFileInputToBeThePickerSurface(mobilePage);
       await chooseTrackThroughVisiblePicker(mobilePage, track, expectedHash);
     });
 

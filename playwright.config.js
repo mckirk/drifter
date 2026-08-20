@@ -19,7 +19,7 @@ export default defineConfig({
     },
     {
       name: "firefox-mobile",
-      grep: /mobile chooses a file/,
+      grep: /@file-picker/,
       use: { browserName: "firefox" },
     },
   ],
