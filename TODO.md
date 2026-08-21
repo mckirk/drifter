@@ -1,0 +1,4 @@
+- make 'join a shared session' a separate flow that only needs the user to select the appropriate file
+    - include intended file name in share link
+- improve live sync; currently unusable
+- fix 'taking out your headphones pauses audio'
